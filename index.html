@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <!-- 
 
+Fluid Simulation
+
+Finished: 3/22/23
+
 Resources:
 http://graphics.cs.cmu.edu/nsp/course/15-464/Fall09/papers/StamFluidforGames.pdf
 
@@ -780,7 +784,7 @@ const resolutionScale = 0.5,
 
 const tau = Math.PI * 2;
 
-const screenSizeX = window.innerWidth,
+let screenSizeX = window.innerWidth,
     screenSizeY = window.innerHeight,
     gridSizeX = screenSizeX * resolutionScale | 0,
     gridSizeY = screenSizeY * resolutionScale | 0,
@@ -788,6 +792,28 @@ const screenSizeX = window.innerWidth,
     glArraySize = gridSizeX * gridSizeY * 4,
     centerX = gridSizeX * 0.5,
     centerY = gridSizeY * 0.5;
+
+const resize = () => {
+    screenSizeX = window.innerWidth;
+    screenSizeY = window.innerHeight;
+    gridSizeX = screenSizeX * resolutionScale | 0;
+    gridSizeY = screenSizeY * resolutionScale | 0;
+    arraySize = gridSizeX * gridSizeY;
+    glArraySize = gridSizeX * gridSizeY * 4;
+    centerX = gridSizeX * 0.5;
+    centerY = gridSizeY * 0.5;
+
+    canvas.width = glCanvas.width = gridSizeX
+    canvas.height = glCanvas.height = gridSizeY;
+
+    initialize();
+};
+
+let timer
+window.onresize = () => {
+    window.clearTimeout(timer);
+    timer = window.setTimeout(resize, 100);
+};
 
 
 const deg60 = Math.PI / 3;
@@ -845,7 +871,6 @@ function setBounds(dir, dataInput) {
     ComputeShader.swapTextures(setBoundaries.output, dataInput);
 }
 function project() {
-    // ComputeShader.updateInput(pInput, new Float32Array(glArraySize));
     for (let i = iter; i --;) {
         project1.use();
         project1.initializeInputs();
@@ -865,13 +890,39 @@ ComputeShader.useContext(cgl);
 canvas.width = glCanvas.width = gridSizeX
 canvas.height = glCanvas.height = gridSizeY;
 
-const velInput = ComputeShader.createInput('vel', new Float32Array(glArraySize), gridSizeX, gridSizeY),
+let velInput,
+    newVelInput,
+    densityInput,
+    newDensityInput,
+    pInput,
+    boundaryDataInput;
+let mouseUniform,
+    pmouseUniform,
+    diffUniform,
+    vStrengthUniform,
+    dirUniform,
+    colUniform,
+    forceScaleUniform;
+let addVel,
+    addDensity,
+    diffuseVel,
+    vorticityConfinement,
+    advectVel,
+    project1,
+    project2,
+    setBoundaries,
+    diffuseDensity,
+    advectDensity,
+    renderToCanvas;
+
+const initialize = () => {
+    velInput = ComputeShader.createInput('vel', new Float32Array(glArraySize), gridSizeX, gridSizeY),
     newVelInput = ComputeShader.createInput('newVel', new Float32Array(glArraySize), gridSizeX, gridSizeY),
     densityInput = ComputeShader.createInput('density', new Float32Array(glArraySize), gridSizeX, gridSizeY),
     newDensityInput = ComputeShader.createInput('newDensity', new Float32Array(glArraySize), gridSizeX, gridSizeY),
     pInput = ComputeShader.createInput('p', new Float32Array(glArraySize), gridSizeX, gridSizeY),
     boundaryDataInput = ComputeShader.createInput('data', new Float32Array(glArraySize), gridSizeX, gridSizeY);
-const mouseUniform = ComputeShader.createUniform('mouse', '2fv', [0, 0]),
+    mouseUniform = ComputeShader.createUniform('mouse', '2fv', [0, 0]),
     pmouseUniform = ComputeShader.createUniform('pmouse', '2fv', [0, 0]),
     diffUniform = ComputeShader.createUniform('diff', '1f', 0.1),
     vStrengthUniform = ComputeShader.createUniform('vStrength', '1f', vStrength),
@@ -879,64 +930,65 @@ const mouseUniform = ComputeShader.createUniform('mouse', '2fv', [0, 0]),
     colUniform = ComputeShader.createUniform('col', '3fv', [0, 0, 0]),
     forceScaleUniform = ComputeShader.createUniform('forceScale', '1f', forceScale);
 
-const addVel = new ComputeShader(document.getElementById('add-vel').textContent, gridSizeX, gridSizeY);
-addVel.addInput(velInput);
-addVel.addUniform(mouseUniform);
-addVel.addUniform(pmouseUniform);
-addVel.addUniform(forceScaleUniform);
-addVel.use();
-addVel.initializeUniforms();
+    addVel = new ComputeShader(document.getElementById('add-vel').textContent, gridSizeX, gridSizeY);
+    addVel.addInput(velInput);
+    addVel.addUniform(mouseUniform);
+    addVel.addUniform(pmouseUniform);
+    addVel.addUniform(forceScaleUniform);
+    addVel.use();
+    addVel.initializeUniforms();
 
-const addDensity = new ComputeShader(document.getElementById('add-density').textContent, gridSizeX, gridSizeY);
-addDensity.addInput(densityInput);
-addDensity.addUniform(mouseUniform);
-addDensity.addUniform(colUniform);
-addDensity.addUniform(forceScaleUniform);
-addDensity.use();
-addDensity.initializeUniforms();
+    addDensity = new ComputeShader(document.getElementById('add-density').textContent, gridSizeX, gridSizeY);
+    addDensity.addInput(densityInput);
+    addDensity.addUniform(mouseUniform);
+    addDensity.addUniform(colUniform);
+    addDensity.addUniform(forceScaleUniform);
+    addDensity.use();
+    addDensity.initializeUniforms();
 
-const diffuseVel = new ComputeShader(document.getElementById('diffuse-vel').textContent, gridSizeX, gridSizeY);
-diffuseVel.addInput(velInput);
-diffuseVel.addInput(newVelInput);
-diffuseVel.addUniform(diffUniform);
-diffuseVel.use();
-diffuseVel.initializeUniforms();
+    diffuseVel = new ComputeShader(document.getElementById('diffuse-vel').textContent, gridSizeX, gridSizeY);
+    diffuseVel.addInput(velInput);
+    diffuseVel.addInput(newVelInput);
+    diffuseVel.addUniform(diffUniform);
+    diffuseVel.use();
+    diffuseVel.initializeUniforms();
 
-const vorticityConfinement = new ComputeShader(document.getElementById('vorticity-confinement').textContent, gridSizeX, gridSizeY);
-vorticityConfinement.addInput(velInput);
-vorticityConfinement.addUniform(vStrengthUniform);
-vorticityConfinement.use();
-vorticityConfinement.initializeUniforms();
+    vorticityConfinement = new ComputeShader(document.getElementById('vorticity-confinement').textContent, gridSizeX, gridSizeY);
+    vorticityConfinement.addInput(velInput);
+    vorticityConfinement.addUniform(vStrengthUniform);
+    vorticityConfinement.use();
+    vorticityConfinement.initializeUniforms();
 
-const advectVel = new ComputeShader(document.getElementById('advect-vel').textContent, gridSizeX, gridSizeY);
-advectVel.addInput(velInput);
+    advectVel = new ComputeShader(document.getElementById('advect-vel').textContent, gridSizeX, gridSizeY);
+    advectVel.addInput(velInput);
 
-const project1 = new ComputeShader(document.getElementById('project1').textContent, gridSizeX, gridSizeY);
-project1.addInput(velInput);
-project1.addInput(pInput);
+    project1 = new ComputeShader(document.getElementById('project1').textContent, gridSizeX, gridSizeY);
+    project1.addInput(velInput);
+    project1.addInput(pInput);
 
-const project2 = new ComputeShader(document.getElementById('project2').textContent, gridSizeX, gridSizeY);
-project2.addInput(velInput);
-project2.addInput(pInput);
+    project2 = new ComputeShader(document.getElementById('project2').textContent, gridSizeX, gridSizeY);
+    project2.addInput(velInput);
+    project2.addInput(pInput);
 
-const setBoundaries = new ComputeShader(document.getElementById('set-boundaries').textContent, gridSizeX, gridSizeY);
-setBoundaries.addInput(boundaryDataInput);
-setBoundaries.addUniform(dirUniform);
+    setBoundaries = new ComputeShader(document.getElementById('set-boundaries').textContent, gridSizeX, gridSizeY);
+    setBoundaries.addInput(boundaryDataInput);
+    setBoundaries.addUniform(dirUniform);
 
-const diffuseDensity = new ComputeShader(document.getElementById('diffuse-density').textContent, gridSizeX, gridSizeY);
-diffuseDensity.addInput(densityInput);
-diffuseDensity.addInput(newDensityInput);
-diffuseDensity.addUniform(diffUniform);
-diffuseDensity.use();
-diffuseDensity.initializeUniforms();
-    
-const advectDensity = new ComputeShader(document.getElementById('advect-density').textContent, gridSizeX, gridSizeY);
-advectDensity.addInput(densityInput);
-advectDensity.addInput(velInput);
+    diffuseDensity = new ComputeShader(document.getElementById('diffuse-density').textContent, gridSizeX, gridSizeY);
+    diffuseDensity.addInput(densityInput);
+    diffuseDensity.addInput(newDensityInput);
+    diffuseDensity.addUniform(diffUniform);
+    diffuseDensity.use();
+    diffuseDensity.initializeUniforms();
+        
+    advectDensity = new ComputeShader(document.getElementById('advect-density').textContent, gridSizeX, gridSizeY);
+    advectDensity.addInput(densityInput);
+    advectDensity.addInput(velInput);
 
-const renderToCanvas = new ComputeShader(document.getElementById('render').textContent, gridSizeX, gridSizeY);
-renderToCanvas.addInput(densityInput);
-
+    renderToCanvas = new ComputeShader(document.getElementById('render').textContent, gridSizeX, gridSizeY);
+    renderToCanvas.addInput(densityInput);
+}
+initialize();
 
 function main() {
     function render(t) {
