@@ -24,6 +24,7 @@ http://graphics.cs.cmu.edu/nsp/course/15-464/Fall09/papers/StamFluidforGames.pdf
                 height: 100%;
             }
         </style>
+        <title>WebGL Fluid Simulation</title>
     </head>
     <body>
 
@@ -685,29 +686,6 @@ let screenSizeX = window.innerWidth,
     centerX = gridSizeX * 0.5,
     centerY = gridSizeY * 0.5;
 
-const textCanvas = new OffscreenCanvas(gridSizeX, gridSizeY),
-    tctx = textCanvas.getContext('2d');
-
-tctx.textAlign = 'center';
-tctx.textBaseline = 'middle';
-
-tctx.translate(gridSizeX / 2, gridSizeY / 2);
-tctx.scale(1, -1);
-
-tctx.fillStyle = 'white';
-tctx.font = `${gridSizeX / 20}px monospace`;
-tctx.fillText('Click and drag to interact', 0, 0);
-
-const data = tctx.getImageData(0, 0, gridSizeX, gridSizeY).data,
-    textData = new Float32Array(glArraySize);
-for (let i = 0; i < glArraySize; i += 4) {
-    const val = data[i] * data[i + 3] / 255 / 255;
-    textData[i    ] = val;
-    textData[i + 1] = val;
-    textData[i + 2] = val;
-    textData[i + 3] = 1;
-}
-
 
 const [glCanvas, cgl] = ComputeShader.createContext();
 ComputeShader.useContext(cgl);
@@ -877,6 +855,31 @@ let addVel,
     renderToCanvas;
 
 const initialize = () => {
+    running = false;
+    
+    const textCanvas = new OffscreenCanvas(gridSizeX, gridSizeY),
+        tctx = textCanvas.getContext('2d');
+
+    tctx.textAlign = 'center';
+    tctx.textBaseline = 'middle';
+
+    tctx.translate(gridSizeX / 2, gridSizeY / 2);
+    tctx.scale(1, -1);
+
+    tctx.fillStyle = 'white';
+    tctx.font = `${gridSizeX / 20}px monospace`;
+    tctx.fillText('Click and drag to interact', 0, 0);
+
+    const data = tctx.getImageData(0, 0, gridSizeX, gridSizeY).data,
+        textData = new Float32Array(glArraySize);
+    for (let i = 0; i < glArraySize; i += 4) {
+        const val = data[i] * data[i + 3] / 255 / 255;
+        textData[i    ] = val;
+        textData[i + 1] = val;
+        textData[i + 2] = val;
+        textData[i + 3] = 1;
+    }
+    
     velInput = ComputeShader.createInput('vel', new Float32Array(glArraySize), gridSizeX, gridSizeY),
     newVelInput = ComputeShader.createInput('newVel', new Float32Array(glArraySize), gridSizeX, gridSizeY),
     densityInput = ComputeShader.createInput('density', textData, gridSizeX, gridSizeY),
