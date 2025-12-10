@@ -717,6 +717,10 @@ glCanvas.addEventListener('touchstart', e => {
     mouseDown = true, pmx = mx = e.touches[0].clientX, pmy = my = e.touches[0].clientY, mButton = e.button;
     touches = e.touches;
     ptouches = e.touches;
+    if (!running) {
+        running = true;
+        render();
+    }
     updateMouseUniforms();
 });
 glCanvas.addEventListener('touchend', e => {
@@ -856,7 +860,7 @@ let addVel,
 
 const initialize = () => {
     running = false;
-    
+
     const textCanvas = new OffscreenCanvas(gridSizeX, gridSizeY),
         tctx = textCanvas.getContext('2d');
 
