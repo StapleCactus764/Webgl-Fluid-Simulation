@@ -8,7 +8,7 @@ Finished: 3/22/23
 Resources:
 http://graphics.cs.cmu.edu/nsp/course/15-464/Fall09/papers/StamFluidforGames.pdf
 
- -->
+-->
 <html>
     <head>
         <style>
@@ -20,50 +20,12 @@ http://graphics.cs.cmu.edu/nsp/course/15-464/Fall09/papers/StamFluidforGames.pdf
                 background-color: black;
             }
             canvas {
-                display: block;
-                margin: auto;
-                /* image-rendering: crisp-edges; */
-                /* image-rendering: pixelated; */
-
                 width: 100%;
                 height: 100%;
-
-                background-color: white;
-            }
-
-            #log .sep {
-                width: calc(100% - 10px);
-                height: 1px;
-
-                background-color: rgb(160, 160, 160);
-            }
-            #log .info {
-                width: 100%;
-                display: inline-block;
-                white-space: break-spaces;
-                overflow: scroll;
-            }
-
-            #log {
-                position: absolute;
-                top: 400px;
-
-                background-color: white;
-                padding: 4px 5px 5px 14px;
-
-                width: 500px;
-
-                overflow: scroll;
-
-                border-top: 2px solid rgb(160, 160, 160);
-
-                display: none;
             }
         </style>
     </head>
     <body>
-        <canvas id = 'canvas'></canvas>
-        <p id = 'log'></p>
 
         <script id = 'render' type = 'glsl'>
 precision highp float;
@@ -119,7 +81,7 @@ void main() {
 
     float dist = ((mouse.x - ap.x) * (mouse.x - ap.x) + (mouse.y - ap.y) * (mouse.y - ap.y)) * forceScale + 0.1;
 
-    gl_FragColor = vec4(densityData + col / dist, 0);
+    gl_FragColor = vec4(densityData + col / dist * 0.6, 0);
 }
 
 
@@ -203,8 +165,6 @@ void main() {
     } else gl_FragColor = c;
     
 }
-
-
         </script>
         <script id = 'advect-vel' type = 'glsl'>
 precision highp float;
@@ -303,19 +263,11 @@ void main() {
         pny = texture2D(p, vec2(ap.x, ap.y - 1.0) / pDimensions).x,
         ppx = texture2D(p, vec2(ap.x + 1.0, ap.y) / pDimensions).x,
         ppy = texture2D(p, vec2(ap.x, ap.y + 1.0) / pDimensions).x;
-
-    //(divergence[index(x, y)] + p[index(x - 1, y)] + p[index(x + 1, y)] + p[index(x, y - 1)] + p[index(x, y + 1)]) * 0.25;
-
-    //float p = (divergence + pnx + ppx + pny + ppy) * 0.25;
     
     vec2 result = vec2(c.x - 0.5 * (ppx - pnx), c.y - 0.5 * (ppy - pny));
 
     gl_FragColor = vec4(result, 0, 0);//vec4(floor(ppx * 1000.0) / 1000.0, floor(pnx * 1000.0) / 1000.0, floor(ppy * 1000.0) / 1000.0, floor(pny * 1000.0) / 1000.0);//
 }
-
-
-            //velx[index(x, y)] -= 0.5 * (p[index(x + 1, y)] - p[index(x - 1, y)]);
-            //vely[index(x, y)] -= 0.5 * (p[index(x, y + 1)] - p[index(x, y - 1)]);
         </script>
         <script id = 'set-boundaries' type = 'glsl'>
 precision highp float;
@@ -341,9 +293,6 @@ void main() {
         if (ap.y <= 2.0) result.y = -texture2D(data, vec2(ap.x, ap.y + 1.0) / dataDimensions).y, result.x = -texture2D(data, vec2(ap.x, ap.y + 1.0) / dataDimensions).x;
         if (ap.y >= dataDimensions.y - 3.0) result.y = -texture2D(data, vec2(ap.x, ap.y - 1.0) / dataDimensions).y, result.x = -texture2D(data, vec2(ap.x, ap.y - 1.0) / dataDimensions).x;
     }
-
-    //if (ap.x <= 10.0 || result.x >= velDimensions.x - 10.0) result.x = 0.0, result.y = 0.0;
-    //if (ap.y <= 10.0 || result.y >= velDimensions.y - 10.0) result.x = 0.0, result.y = 0.0;
 
     gl_FragColor = vec4(result, 0, 0);//vec4(floor(ppx * 1000.0) / 1000.0, floor(pnx * 1000.0) / 1000.0, floor(ppy * 1000.0) / 1000.0, floor(pny * 1000.0) / 1000.0);//
 }
@@ -443,75 +392,6 @@ void main() {
 
         </script>
             
-        <script> // Handles setup
-log.style.width = '100%';
-log.style.height = `calc(100% - 400px)`;
-
-const l = (...data) => {
-
-    for (const d of data) log.innerHTML += `<pre class = 'info'> ${d !== Object(d) ? d : d.toString() + ' '}</pre>`;
-
-    log.innerHTML += '<div class = "sep"><div>';
-    log.scrollTop = log.scrollHeight;
-};
-
-let touches = [],
-    ptouches = [];
-
-const canvas = document.getElementById('canvas');
-    ctx = canvas.getContext('2d');
-
-let mouseDown = false,
-    mx = 0,
-    my = 0,
-    pmx = 0,
-    pmy = 0,
-    mButton;
-
-function updateMouseUniforms() {
-    ComputeShader.updateUniform(mouseUniform, [mx * resolutionScale, (window.innerHeight - my) * resolutionScale]);
-    ComputeShader.updateUniform(pmouseUniform, [pmx * resolutionScale, (window.innerHeight - pmy) * resolutionScale]);
-}
-canvas.addEventListener('mousedown', e => {
-    e.preventDefault();
-    mouseDown = true, pmx = mx = e.offsetX, pmy = my = e.offsetY, mButton = e.button;
-    updateMouseUniforms();
-});
-canvas.addEventListener('mouseup', e => (mouseDown = false, pmx = mx = e.offsetX, pmy = my = e.offsetY));
-canvas.addEventListener('mousemove', e => {
-    pmx = mx, pmy = my, mx = e.offsetX, my = e.offsetY;
-    updateMouseUniforms();
-    // touches = e.touches;
-}, {passive: false});
-canvas.addEventListener('touchstart', e => {
-    e.preventDefault();
-    mouseDown = true, pmx = mx = e.touches[0].clientX, pmy = my = e.touches[0].clientY, mButton = e.button;
-    touches = e.touches;
-    ptouches = e.touches;
-    updateMouseUniforms();
-});
-canvas.addEventListener('touchend', e => {
-    mouseDown = false;
-    pmx = mx = e.touches[0].clientX, pmy = my = e.touches[0].clientY;
-    touches = [];
-});
-canvas.addEventListener('touchmove', e => {
-    ptouches = touches;
-    touches = e.touches;
-    // pmx = mx, pmy = my, mx = e.touches[0].clientX, my = e.touches[0].clientY;
-    // updateMouseUniforms();
-});
-canvas.addEventListener('contextmenu', e => e.preventDefault());
-
-let delta = 0,
-    pt = 0,
-    frame = 1;
-
-// window.onresize = () => {
-//     window.setTimeout(() => window.location.reload(), 100);
-// };
-
-        </script>
         <script> // Compute shaders!
 
 class ComputeShaderError extends Error {
@@ -774,7 +654,18 @@ class ComputeShader {
 }
 
         </script>
-        <script>
+        <script> // Handles setup
+
+let touches = [],
+    ptouches = [];
+
+let mouseDown = false,
+    mx = 0,
+    my = 0,
+    pmx = 0,
+    pmy = 0,
+    mButton;
+
 
 const resolutionScale = 0.5,
     iter = 10,
@@ -784,6 +675,7 @@ const resolutionScale = 0.5,
 
 const tau = Math.PI * 2;
 
+let running = false;
 let screenSizeX = window.innerWidth,
     screenSizeY = window.innerHeight,
     gridSizeX = screenSizeX * resolutionScale | 0,
@@ -792,6 +684,81 @@ let screenSizeX = window.innerWidth,
     glArraySize = gridSizeX * gridSizeY * 4,
     centerX = gridSizeX * 0.5,
     centerY = gridSizeY * 0.5;
+
+const textCanvas = new OffscreenCanvas(gridSizeX, gridSizeY),
+    tctx = textCanvas.getContext('2d');
+
+tctx.textAlign = 'center';
+tctx.textBaseline = 'middle';
+
+tctx.translate(gridSizeX / 2, gridSizeY / 2);
+tctx.scale(1, -1);
+
+tctx.fillStyle = 'white';
+tctx.font = `${gridSizeX / 20}px monospace`;
+tctx.fillText('Click and drag to interact', 0, 0);
+
+const data = tctx.getImageData(0, 0, gridSizeX, gridSizeY).data,
+    textData = new Float32Array(glArraySize);
+for (let i = 0; i < glArraySize; i += 4) {
+    const val = data[i] * data[i + 3] / 255 / 255;
+    if (val !== 0) console.log(val);
+    textData[i    ] = val;
+    textData[i + 1] = val;
+    textData[i + 2] = val;
+    textData[i + 3] = 1;
+}
+
+
+const [glCanvas, cgl] = ComputeShader.createContext();
+ComputeShader.useContext(cgl);
+glCanvas.width = gridSizeX
+glCanvas.height = gridSizeY;
+
+document.body.appendChild(glCanvas);
+
+function updateMouseUniforms() {
+    ComputeShader.updateUniform(mouseUniform, [mx * resolutionScale, (window.innerHeight - my) * resolutionScale]);
+    ComputeShader.updateUniform(pmouseUniform, [pmx * resolutionScale, (window.innerHeight - pmy) * resolutionScale]);
+}
+glCanvas.addEventListener('mousedown', e => {
+    e.preventDefault();
+    mouseDown = true, pmx = mx = e.offsetX, pmy = my = e.offsetY, mButton = e.button;
+    if (!running) {
+        running = true;
+        render();
+    }
+    updateMouseUniforms();
+});
+glCanvas.addEventListener('mouseup', e => (mouseDown = false, pmx = mx = e.offsetX, pmy = my = e.offsetY));
+glCanvas.addEventListener('mousemove', e => {
+    pmx = mx, pmy = my, mx = e.offsetX, my = e.offsetY;
+    updateMouseUniforms();
+}, {passive: false});
+glCanvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    mouseDown = true, pmx = mx = e.touches[0].clientX, pmy = my = e.touches[0].clientY, mButton = e.button;
+    touches = e.touches;
+    ptouches = e.touches;
+    updateMouseUniforms();
+});
+glCanvas.addEventListener('touchend', e => {
+    mouseDown = false;
+    touches = [];
+});
+glCanvas.addEventListener('touchmove', e => {
+    ptouches = touches;
+    touches = e.touches;
+});
+glCanvas.addEventListener('contextmenu', e => e.preventDefault());
+
+let delta = 0,
+    pt = 0,
+    frame = 1;
+
+        </script>
+        <script>
+
 
 const resize = () => {
     screenSizeX = window.innerWidth;
@@ -803,13 +770,13 @@ const resize = () => {
     centerX = gridSizeX * 0.5;
     centerY = gridSizeY * 0.5;
 
-    canvas.width = glCanvas.width = gridSizeX
-    canvas.height = glCanvas.height = gridSizeY;
+    glCanvas.width = gridSizeX
+    glCanvas.height = gridSizeY;
 
     initialize();
 };
 
-let timer
+let timer;
 window.onresize = () => {
     window.clearTimeout(timer);
     timer = window.setTimeout(resize, 100);
@@ -885,11 +852,6 @@ function project() {
     setBounds(1, velInput);
 }
 
-const [glCanvas, cgl] = ComputeShader.createContext();
-ComputeShader.useContext(cgl);
-canvas.width = glCanvas.width = gridSizeX
-canvas.height = glCanvas.height = gridSizeY;
-
 let velInput,
     newVelInput,
     densityInput,
@@ -918,8 +880,8 @@ let addVel,
 const initialize = () => {
     velInput = ComputeShader.createInput('vel', new Float32Array(glArraySize), gridSizeX, gridSizeY),
     newVelInput = ComputeShader.createInput('newVel', new Float32Array(glArraySize), gridSizeX, gridSizeY),
-    densityInput = ComputeShader.createInput('density', new Float32Array(glArraySize), gridSizeX, gridSizeY),
-    newDensityInput = ComputeShader.createInput('newDensity', new Float32Array(glArraySize), gridSizeX, gridSizeY),
+    densityInput = ComputeShader.createInput('density', textData, gridSizeX, gridSizeY),
+    newDensityInput = ComputeShader.createInput('newDensity', textData, gridSizeX, gridSizeY),
     pInput = ComputeShader.createInput('p', new Float32Array(glArraySize), gridSizeX, gridSizeY),
     boundaryDataInput = ComputeShader.createInput('data', new Float32Array(glArraySize), gridSizeX, gridSizeY);
     mouseUniform = ComputeShader.createUniform('mouse', '2fv', [0, 0]),
@@ -988,101 +950,110 @@ const initialize = () => {
     renderToCanvas = new ComputeShader(document.getElementById('render').textContent, gridSizeX, gridSizeY);
     renderToCanvas.addInput(densityInput);
 }
+
 initialize();
 
-function main() {
-    function render(t) {
-        ComputeShader.updateUniform(colUniform, HSLtoRGB(frame / 5, Math.random() * 0.5 + 0.5, 0.1));
+const addFunc = () => {
+    if (mouseDown) {
+        if (touches.length) {
+            for (let i = 0; i < touches.length; i ++) {
+                pmx = ptouches[i].clientX, pmy = ptouches[i].clientY;
+                mx = touches[i].clientX, my = touches[i].clientY;
+                updateMouseUniforms();
+                addVelFunc();
 
-        if (mouseDown) {
-            if (touches.length) {
-                for (let i = 0; i < touches.length; i ++) {
-                    pmx = ptouches[i].clientX, pmy = ptouches[i].clientY;
-                    mx = touches[i].clientX, my = touches[i].clientY;
-                    updateMouseUniforms();
-                    addVel.use();
-                    addVel.initializeUniforms();
-                    addVel.initializeInputs();
-                    addVel.run();
-                    ComputeShader.swapTextures(addVel.output, velInput);
-
-                    addDensity.use();
-                    addDensity.initializeUniforms();
-                    addDensity.initializeInputs();
-                    addDensity.run();
-                    ComputeShader.swapTextures(addDensity.output, densityInput);
-                }
-            } else {
-                addVel.use();
-                addVel.initializeUniforms();
-                addVel.initializeInputs();
-                addVel.run();
-                ComputeShader.swapTextures(addVel.output, velInput);
-
-                addDensity.use();
-                addDensity.initializeUniforms();
-                addDensity.initializeInputs();
-                addDensity.run();
-                ComputeShader.swapTextures(addDensity.output, densityInput);
+                addDensityFunc();
             }
+        } else {
+            addVelFunc();
+
+            addDensityFunc();
         }
-
-        // ComputeShader.updateInput(newVelInput, new Float32Array(glArraySize));
-        
-        for (let i = iter; i --;) {
-            diffuseVel.use();
-            diffuseVel.initializeInputs();
-            diffuseVel.run();
-            ComputeShader.swapTextures(diffuseVel.output, newVelInput);
-            setBounds(0, newVelInput);
-        }
-        ComputeShader.swapTextures(diffuseVel.output, velInput);
-        
-        vorticityConfinement.use();
-        vorticityConfinement.initializeInputs();
-        vorticityConfinement.run();
-        ComputeShader.swapTextures(vorticityConfinement.output, velInput);
-        setBounds(0, velInput);
-        
-        project();
-
-        advectVel.use();
-        advectVel.initializeInputs();
-        advectVel.run();
-        ComputeShader.swapTextures(advectVel.output, velInput);
-        setBounds(0, velInput);
-
-        project();
-        
-        for (let i = iter; i --;) {
-            diffuseDensity.use();
-            diffuseDensity.initializeInputs();
-            diffuseDensity.run();
-            ComputeShader.swapTextures(diffuseDensity.output, newDensityInput);
-        }
-        ComputeShader.swapTextures(diffuseDensity.output, newDensityInput);
-        
-        advectDensity.use();
-        advectDensity.initializeInputs();
-        advectDensity.run();
-        ComputeShader.swapTextures(advectDensity.output, densityInput);
-        
-        renderToCanvas.use(true); // Render to the canvas
-        renderToCanvas.initializeInputs();
-        renderToCanvas.run();
-
-        ctx.clearRect(0, 0, gridSizeX, gridSizeY);
-        ctx.drawImage(glCanvas, 0, 0);
-        
-        delta = t - pt;
-        pt = t;
-
-        frame ++;
-        window.requestAnimationFrame(render);
     }
-    render();
+};
+const addVelFunc = () => {
+    addVel.use();
+    addVel.initializeUniforms();
+    addVel.initializeInputs();
+    addVel.run();
+    ComputeShader.swapTextures(addVel.output, velInput);
+};
+const addDensityFunc = () => {
+    addDensity.use();
+    addDensity.initializeUniforms();
+    addDensity.initializeInputs();
+    addDensity.run();
+    ComputeShader.swapTextures(addDensity.output, densityInput);
+};
+const advect = () => {
+    advectVel.use();
+    advectVel.initializeInputs();
+    advectVel.run();
+    ComputeShader.swapTextures(advectVel.output, velInput);
+};
+const diffuseVelFunc = () => {
+    for (let i = iter; i --;) {
+        diffuseVel.use();
+        diffuseVel.initializeInputs();
+        diffuseVel.run();
+        ComputeShader.swapTextures(diffuseVel.output, newVelInput);
+        setBounds(0, newVelInput);
+    }
+    ComputeShader.swapTextures(diffuseVel.output, velInput);
+};
+const vorticyConfinementFunc = () => {
+    vorticityConfinement.use();
+    vorticityConfinement.initializeInputs();
+    vorticityConfinement.run();
+    ComputeShader.swapTextures(vorticityConfinement.output, velInput);
+};
+const diffuseDensityFunc = () => {
+    for (let i = iter; i --;) {
+        diffuseDensity.use();
+        diffuseDensity.initializeInputs();
+        diffuseDensity.run();
+        ComputeShader.swapTextures(diffuseDensity.output, newDensityInput);
+    }
+    ComputeShader.swapTextures(diffuseDensity.output, newDensityInput);
+};
+const advectDensityFunc = () => {
+    advectDensity.use();
+    advectDensity.initializeInputs();
+    advectDensity.run();
+    ComputeShader.swapTextures(advectDensity.output, densityInput);
+};
+const renderFunc = () => {
+    renderToCanvas.use(true); // Render to the canvas
+    renderToCanvas.initializeInputs();
+    renderToCanvas.run();
+};
+
+function render(t) {
+    ComputeShader.updateUniform(colUniform, HSLtoRGB(frame / 5, Math.random() * 0.5 + 0.5, 0.1));
+
+    addFunc();
+    diffuseVelFunc();
+    setBounds(0, velInput);
+    
+    project();
+
+    advect();
+    setBounds(0, velInput);
+
+    project();
+    
+    diffuseDensityFunc();
+    advectDensityFunc();
+    
+    renderFunc();
+    
+    delta = t - pt;
+    pt = t;
+
+    frame ++;
+    if (running) window.requestAnimationFrame(render);
 }
-main();
+render();
 
         </script>
     </body>
